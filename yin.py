@@ -4,6 +4,7 @@ import numpy as np
 from scipy.io.wavfile import read
 import matplotlib.pyplot as plt
 import warnings
+import time
 
 
 def diff(x: np.array, 
@@ -28,19 +29,16 @@ def diff(x: np.array,
     # w < len(x)
     # tau_max - 1 + start + max_j (w) < len(x) => tau_max < len(x) + 1 - start - w
     assert tau_max < len(x) + 1 - start - w
-    difference: list = []
+    difference: np.array = np.zeros((tau_max, )) # allocate the difference function outputs
     x = np.array(x, dtype=np.int32)
-    for t in range(tau_max): 
-        df: float = 0
-        df2 = 0
-        for j in range(1, w + 1): 
-            with warnings.catch_warnings():
-                warnings.filterwarnings('error')
-                try:
-                    df += (x[start + j] - x[start + j + t]) ** 2
-                except Exception:
-                    print(f'{x[start + j]} - {x[start + j + t]} gave a warning')
-        difference.append(df)
+    for t in range(tau_max):
+        df = 0
+        start_j = x[start + 1: start + w + 1]
+        start_j_t = x[start + 1 + t: start + w + 1 + t]
+        # for j in range(1, w + 1): 
+        #     df += (x[start + j] - x[start + j + t]) ** 2
+        df = ((start_j - start_j_t) ** 2).sum()
+        difference[t] = df
     
     return np.array(difference, dtype=np.float64)
 
@@ -109,32 +107,99 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
     else:
         return min(abscissae, key=lambda abscissa: cmndiff[abscissa]) # return the minimum of the three points
      
-    
-#%%
-# test on sine waves
-fs, data = read('audio/flute-alto-C-corrected.wav')
 
+# def best_local_estimate(w: int, cmndiff: np.array) -> int:
+#     """F. Step 6: Best Local Estimate. Proceed with step 6 and run the abs_threshold algorithm on different 
+#     time intervals to obtain the optimal result
+
+#     Args:
+#         w (int): the integration window, representing the largest estimated period possible
+#         cmndiff (np.array): the cmndiff results calculated from previous step
+
+#     Returns:
+#         int: returns the optimal tau value
+#     """
+#   This part will be left out because we are trying to obtain real-time performance and this step
+#   is very time-consuming. I will trade that 0.2% accuracy for a faster algorithm :)
+    
+    
+
+#%%
+def yin_algorithm_one_block(x: np.array, 
+                            tau_max: int, 
+                            start: int,
+                            w: int,
+                            threshold = 0.1, 
+                            plot = False) -> int:
+    """yin algorithm for one block
+
+    Args:
+        x (np.array): the input signal
+        tau_max (int): the maximum frequency to be estimated, for step 2
+        start (int): the starting index in the signal
+        w (int): the integration window size
+        threshold (float, optional): the threshold to select tau. Defaults to 0.1.
+
+    Returns:
+        int: returns the calculated estimated frequency
+    """
+    # start_time = time.time()
+    diff_signal = diff(x, tau_max, start, w)
+    # end_time = time.time()
+    # print(f'execution time of diff: {end_time - start_time}')
+    
+    # start_time = time.time()
+    cmndiff_signal = cmndiff(diff_signal)
+    # end_time = time.time()
+    # print(f'execution time of cmndiff: {end_time - start_time}')
+    
+    # start_time = time.time()
+    tau = abs_threshold(cmndiff_signal, threshold=threshold)
+    # end_time = time.time()
+    # print(f'execution time of abs_threshold: {end_time - start_time}')
+
+    tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
+    tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
+    detected_freq = 1 / (tau_interpolated / fs)
+    
+    if (plot):
+        plt.figure(1)
+        plt.plot(data)
+        plt.title(f'The Input Signal from Sample {start} to Sample {start + w}')
+        plt.figure(2)
+        plt.title(f'The Difference Function')
+        plt.plot(diff_signal)
+        plt.figure(3)
+        plt.title(f'The Cumulative Mean Normalized Difference Function')
+        plt.plot(cmndiff_signal)
+    return detected_freq
+    
+
+#%%
+
+
+# test on flute sound
+fs, data = read('audio/flute-alto-C-corrected.wav')
+start_time = time.time()
+detected_freq = yin_algorithm_one_block(data, 3000, 10000, 4410)
+end_time = time.time()
+print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
+print(f'detected frequency: {detected_freq}')
+print(f'execution time: {end_time - start_time}')
+
+#%%
+
+# test on sine waves
 f1 = 400
 f2 = 800
 f3 = 1200
-x = np.arange(10000)
-# data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi * f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
-diff_signal = diff(data, 3000, 10000, 200)
-cmndiff_signal = cmndiff(diff_signal)
-tau = abs_threshold(cmndiff_signal, threshold=0.1)
-tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
-print(f'tau (not interpolated): {tau}')
-print(f'tau chosen: {tau_interpolated}')
-detected_freq = 1 / (tau_chosen / fs)
+x = np.arange(100000)
+data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi * f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
+start_time = time.time()
+detected_freq = yin_algorithm_one_block(data, 3000, 10000, 4410)
+end_time = time.time()
+print(f'------------------------------------------- TEST ON SINE WAVES ----------------------------')
 print(f'detected frequency: {detected_freq}')
-
-plt.figure(1)
-plt.plot(data)
-plt.figure(2)
-plt.plot(diff_signal)
-plt.figure(3)
-plt.plot(cmndiff_signal)
-print(len(data))
-
+print(f'execution time: {end_time - start_time}')
 
 # %%
