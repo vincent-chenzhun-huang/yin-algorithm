@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 import math
+import threading
 
 
 def diff(x: np.array, 
@@ -91,7 +92,7 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
         tau_selected (int): the tau value selected for minimum difference
         cmndiff (np.array): the result calculated from cmndiff function.
     """
-    print(tau_selected)
+    # print(tau_selected)
     assert tau_selected > 0 and tau_selected < len(cmndiff) - 1
     ordinates = np.array(cmndiff[tau_selected - 1: tau_selected + 2]) # get the y coordinates
     abscissae = np.array([tau_selected - 1, tau_selected, tau_selected + 1])
@@ -127,7 +128,7 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
     
 
 #%%
-def yin_algorithm_one_block(x: np.array, 
+def yin_algorithm_one_block(x: np.array,
                             tau_max: int, 
                             start: int,
                             w: int,
@@ -180,11 +181,7 @@ def yin_algorithm_one_block(x: np.array,
     
 #%%
 
-def sequential_processing(x: np.array,
-                          tau_max: int,
-                          w: int,
-                          threshold=0.1,
-                          plot=False) -> np.array:
+def sequential_processing(x: np.array, tau_max: int, w: int, threshold=0.1, plot=False) -> np.array:
     """use yin algorithm on several blocks of input sequentially
 
     Args:
@@ -198,7 +195,7 @@ def sequential_processing(x: np.array,
         np.array: an Array of estimated pitches
     """
     
-    assert len(x) > 3 * w # we should have at least two blocks
+    assert len(x) >= 3 * w # we should have at least two blocks
     
     # divide the signal into blocks of size w, the last block has the window size of what's left in the input data
     num_blocks = math.ceil(len(x) / w)
@@ -220,18 +217,59 @@ def sequential_processing(x: np.array,
                                              plot=plot)
     return pitches
 
-def multi_threaded_processing()
+def calculate_num_blocks(x: np.array, divider: int):
+    return math.ceil(len(x) / divider)
+
+# def multi_threaded_processing(x: np.array, 
+                              tau_max: int,
+                              w: int,
+                              threshold=0.1,
+                              plot=False,
+                              num_of_threads=1,
+                              ) -> np.array:
+    """process the sound input using a specified number of threads
+
+    Args:
+        x (np.array): the input signal to be processed
+        tau_max (int): the maximum frequency to be estimated, for step 2
+        w (int): the integration window size
+        threshold (float, optional): the threshold to select tau. Defaults to 0.1.
+        plot (bool, optional): the option to plot the difference functions. Defaults to False.
+        num_of_threads(int, optional): the option to support parallel processing
+        lock (threading.Lock): lock to prevent data race
+    Returns:
+        np.array: an Array of estimated pitches
+    """
+    pitches_lock = threading.Lock()
+    
+    chunk_size = len(x) // num_of_threads
+    starting_indices_for_chunks = [0 + i * chunk_size for i in range(num_of_threads)]
+    last_chunk_size = len(x) - starting_indices_for_chunks[-1]
+    chunk_sizes = [chunk_sizen for i in range(num_of_threads)] + [last_chunk_size]
+
+    
+    assert calculate_num_blocks(chunk_size, w) > 3
+    if (calculate_num_blocks(last_chunk_size) <= 3):
+        starting_indices_for_chunks.pop() # if we can't process the last segment, ditch it
+        chunk_sizes.pop()
+        
+    pitches = np.zeros((np.array(chunk_sizes).sum(), )) # create a list of results to put into
+    
+    
 #%%
 # test on flute sound
-fs, data = read('audio/flute-alto-C-corrected.wav')
+fs, data = read('audio/oboe-bassoon.wav')
 start_time = time.time()
-detected_freqs = sequential_processing(data, 900, 1000)
+detected_freqs = sequential_processing(data, 900, 4410)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
 print(f'detected frequency: {detected_freqs}')
+plt.figure(1)
+plt.plot(detected_freqs)
 print(f'execution time: {end_time - start_time}')
 
 #%%
+
 
 # test on sine waves
 f1 = 400
@@ -249,12 +287,19 @@ print(f'execution time: {end_time - start_time}')
 # %%
 # multi-threaded processing
 
-# import threading
+import time
 
-w = 4410 # 0.1s window
-tau_max = 3000
+from pysinewave import SineWave
 
-fs, data = read('audio/flute-alto-C-corrected.wav')
+sine = SineWave(pitch=12, pitch_per_second=10)
+
+sine.play()
 
 
 
+
+# %%
+
+import sounddevice as sd
+sd.query_devices()
+# %%
