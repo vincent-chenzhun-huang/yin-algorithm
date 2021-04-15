@@ -1,6 +1,8 @@
-#%%
+# %%
 
-import numpy as np 
+import sounddevice as sd
+from pysinewave import SineWave
+import numpy as np
 from scipy.io.wavfile import read
 import matplotlib.pyplot as plt
 import warnings
@@ -9,8 +11,8 @@ import math
 import threading
 
 
-def diff(x: np.array, 
-         tau_max: int, 
+def diff(x: np.array,
+         tau_max: int,
          start: int,
          w: int) -> np.array:
     """
@@ -27,22 +29,24 @@ def diff(x: np.array,
     Returns:
         np.array: A list of results calculated with different values of tau
     """
-    
+
     # w < len(x)
     # tau_max - 1 + start + max_j (w) < len(x) => tau_max < len(x) + 1 - start - w
     assert tau_max < len(x) + 1 - start - w and tau_max < w
-    difference: np.array = np.zeros((tau_max, )) # allocate the difference function outputs
+    # allocate the difference function outputs
+    difference: np.array = np.zeros((tau_max, ))
     x = np.array(x, dtype=np.int32)
     for t in range(tau_max):
         df = 0
         start_j = x[start + 1: start + w + 1]
         start_j_t = x[start + 1 + t: start + w + 1 + t]
-        # for j in range(1, w + 1): 
+        # for j in range(1, w + 1):
         #     df += (x[start + j] - x[start + j + t]) ** 2
         df = ((start_j - start_j_t) ** 2).sum()
         difference[t] = df
-    
+
     return np.array(difference, dtype=np.float64)
+
 
 def cmndiff(difference: np.array) -> np.array:
     """C. Step 3: Cumulative Mean Normalized Difference Function. Calculate the cmndiff of 
@@ -54,13 +58,15 @@ def cmndiff(difference: np.array) -> np.array:
     Returns:
         np.array: a list of results
     """
-    
-    # add a 0 at the beginning to make the index align 
+
+    # add a 0 at the beginning to make the index align
     diff_cumulative = difference.cumsum()
     diff_zero_tau = 1
-    diff_positive_tau = difference[1:] / ((1 / np.array([i for i in range(1, len(difference))])) * difference.cumsum()[1:])
-    
+    diff_positive_tau = difference[1:] / (
+        (1 / np.array([i for i in range(1, len(difference))])) * difference.cumsum()[1:])
+
     return np.concatenate((np.array([diff_zero_tau]), diff_positive_tau))
+
 
 def abs_threshold(cmndiff: np.array, threshold: float = 0.1) -> int:
     """D. Step 4: Absolute Threshold. Choose an absolute threshold and take the minimum value of tau
@@ -78,12 +84,13 @@ def abs_threshold(cmndiff: np.array, threshold: float = 0.1) -> int:
     tau_global_mean = len(cmndiff) - 1
     for t in range(len(cmndiff)):
         if cmndiff[t] <= threshold:
-            return t # return the minimum value of tau that gives the value below the threshold
-        
+            return t  # return the minimum value of tau that gives the value below the threshold
+
         if cmndiff[t] < cmndiff[tau_global_mean]:
             tau_global_mean = t
-    
+
     return tau_global_mean
+
 
 def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
     """E. Step 5: Parabolic Interpolation. Perform parabolic interpolation on the difference function calculated.
@@ -94,25 +101,28 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
     """
     # print(tau_selected)
     assert tau_selected > 0 and tau_selected < len(cmndiff) - 1
-    ordinates = np.array(cmndiff[tau_selected - 1: tau_selected + 2]) # get the y coordinates
+    # get the y coordinates
+    ordinates = np.array(cmndiff[tau_selected - 1: tau_selected + 2])
     abscissae = np.array([tau_selected - 1, tau_selected, tau_selected + 1])
-    
+
     coeffs = np.polyfit(abscissae, ordinates, 2)
     p = np.poly1d(coeffs)
-    
+
     critical_pts = p.deriv().r
-    real_critical_pts = critical_pts[critical_pts.imag==0].real
-    critical_pt = real_critical_pts[0] # take the critical point check if it's between the first and third points
+    real_critical_pts = critical_pts[critical_pts.imag == 0].real
+    # take the critical point check if it's between the first and third points
+    critical_pt = real_critical_pts[0]
     # if it is, then use it as the result, if not (should be impossible, implicitly)
-    
+
     if critical_pt > tau_selected - 1 and real_critical_pts < tau_selected + 1:
         return critical_pt
     else:
-        return min(abscissae, key=lambda abscissa: cmndiff[abscissa]) # return the minimum of the three points
-     
+        # return the minimum of the three points
+        return min(abscissae, key=lambda abscissa: cmndiff[abscissa])
+
 
 # def best_local_estimate(w: int, cmndiff: np.array) -> int:
-#     """F. Step 6: Best Local Estimate. Proceed with step 6 and run the abs_threshold algorithm on different 
+#     """F. Step 6: Best Local Estimate. Proceed with step 6 and run the abs_threshold algorithm on different
 #     time intervals to obtain the optimal result
 
 #     Args:
@@ -124,16 +134,15 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
 #     """
 #   This part will be left out because we are trying to obtain real-time performance and this step
 #   is very time-consuming. I will trade that 0.2% accuracy for a faster algorithm :)
-    
-    
 
-#%%
+
+# %%
 def yin_algorithm_one_block(x: np.array,
-                            tau_max: int, 
+                            tau_max: int,
                             start: int,
                             w: int,
-                            threshold = 0.1, 
-                            plot = False) -> int:
+                            threshold=0.1,
+                            plot=False) -> int:
     """yin algorithm for one block
 
     Args:
@@ -151,12 +160,12 @@ def yin_algorithm_one_block(x: np.array,
     diff_signal = diff(x, tau_max, start, w)
     # end_time = time.time()
     # print(f'execution time of diff: {end_time - start_time}')
-    
+
     # start_time = time.time()
     cmndiff_signal = cmndiff(diff_signal)
     # end_time = time.time()
     # print(f'execution time of cmndiff: {end_time - start_time}')
-    
+
     # start_time = time.time()
     tau = abs_threshold(cmndiff_signal, threshold=threshold)
     # end_time = time.time()
@@ -166,11 +175,12 @@ def yin_algorithm_one_block(x: np.array,
         detected_freq = 1 / (tau_interpolated / fs)
     else:
         detected_freq = 0
-    
+
     if (plot):
         plt.figure(1)
         plt.plot(data[start: start + w])
-        plt.title(f'The Input Signal from Sample {start} to Sample {start + w}')
+        plt.title(
+            f'The Input Signal from Sample {start} to Sample {start + w}')
         plt.figure(2)
         plt.title(f'The Difference Function')
         plt.plot(diff_signal)
@@ -178,8 +188,9 @@ def yin_algorithm_one_block(x: np.array,
         plt.title(f'The Cumulative Mean Normalized Difference Function')
         plt.plot(cmndiff_signal)
     return detected_freq
-    
-#%%
+
+# %%
+
 
 def sequential_processing(x: np.array, tau_max: int, w: int, threshold=0.1, plot=False) -> np.array:
     """use yin algorithm on several blocks of input sequentially
@@ -194,33 +205,36 @@ def sequential_processing(x: np.array, tau_max: int, w: int, threshold=0.1, plot
     Returns:
         np.array: an Array of estimated pitches
     """
-    
-    assert len(x) >= 3 * w # we should have at least two blocks
-    
+
+    assert len(x) >= 3 * w  # we should have at least two blocks
+
     # divide the signal into blocks of size w, the last block has the window size of what's left in the input data
     num_blocks = math.ceil(len(x) / w)
     start_indices = [0 + w * i for i in range(num_blocks)]
     last_block_size = (len(x) - 1) - start_indices[-1] + 1
-    
-    pitches = np.zeros((num_blocks, )) # for each block we should have a result
+
+    # for each block we should have a result
+    pitches = np.zeros((num_blocks, ))
     for i in range(num_blocks):
         if i == num_blocks - 1 or i == num_blocks - 2:
             w = last_block_size
             plot = True
-            pitches[i] = pitches[i - 1] # the last two block fill the frequency of their previous block
+            # the last two block fill the frequency of their previous block
+            pitches[i] = pitches[i - 1]
         else:
             pitches[i] = yin_algorithm_one_block(x,
-                                             tau_max,
-                                             start_indices[i],
-                                             w,
-                                             threshold=threshold,
-                                             plot=plot)
+                                                 tau_max,
+                                                 start_indices[i],
+                                                 w,
+                                                 threshold=threshold,
+                                                 plot=plot)
     return pitches
+
 
 def calculate_num_blocks(x: np.array, divider: int):
     return math.ceil(len(x) / divider)
 
-# def multi_threaded_processing(x: np.array, 
+# def multi_threaded_processing(x: np.array,
     #                           tau_max: int,
     #                           w: int,
     #                           threshold=0.1,
@@ -241,34 +255,37 @@ def calculate_num_blocks(x: np.array, divider: int):
     #     np.array: an Array of estimated pitches
     # """
     # pitches_lock = threading.Lock()
-    
+
     # chunk_size = len(x) // num_of_threads
     # starting_indices_for_chunks = [0 + i * chunk_size for i in range(num_of_threads)]
     # last_chunk_size = len(x) - starting_indices_for_chunks[-1]
     # chunk_sizes = [chunk_sizen for i in range(num_of_threads)] + [last_chunk_size]
 
-    
     # assert calculate_num_blocks(chunk_size, w) > 3
     # if (calculate_num_blocks(last_chunk_size) <= 3):
     #     starting_indices_for_chunks.pop() # if we can't process the last segment, ditch it
     #     chunk_sizes.pop()
-        
+
     # pitches = np.zeros((np.array(chunk_sizes).sum(), )) # create a list of results to put into
-    
-    
-#%%
+
+
+# %%
 # test on flute sound
-fs, data = read('audio/flute-alto-C-corrected.wav')
+filename = 'test.wav'
+fs, data = read(f'audio/{filename}')
 start_time = time.time()
-detected_freqs = sequential_processing(data, 900, 4410)
+detected_freqs = sequential_processing(data, 40, 4410)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
 print(f'detected frequency: {detected_freqs}')
 plt.figure(1)
+plt.xlabel('chunks')
+plt.ylabel('detected pitch (Hz)')
+plt.title(f'pitches detected for {filename}')
 plt.plot(detected_freqs)
 print(f'execution time: {end_time - start_time}')
 
-#%%
+# %%
 
 
 # test on sine waves
@@ -276,9 +293,10 @@ f1 = 400
 f2 = 800
 f3 = 1200
 x = np.arange(100000)
-data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi * f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
+data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi *
+                                                f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
 start_time = time.time()
-detected_freq = yin_algorithm_one_block(data, 3000, 10000, 300)
+detected_freq = sequential_processing(data, 300, 4410)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON SINE WAVES ----------------------------')
 print(f'detected frequency: {detected_freq}')
@@ -287,19 +305,7 @@ print(f'execution time: {end_time - start_time}')
 # %%
 # multi-threaded processing
 
-import time
-
-from pysinewave import SineWave
-
-sine = SineWave(pitch=12, pitch_per_second=10)
-
-sine.play()
-
-
-
-
 # %%
 
-import sounddevice as sd
 sd.query_devices()
 # %%
