@@ -29,7 +29,7 @@ def diff(x: np.array,
     
     # w < len(x)
     # tau_max - 1 + start + max_j (w) < len(x) => tau_max < len(x) + 1 - start - w
-    assert tau_max < len(x) + 1 - start - w
+    assert tau_max < len(x) + 1 - start - w and tau_max < w
     difference: np.array = np.zeros((tau_max, )) # allocate the difference function outputs
     x = np.array(x, dtype=np.int32)
     for t in range(tau_max):
@@ -219,11 +219,13 @@ def sequential_processing(x: np.array,
                                              threshold=threshold,
                                              plot=plot)
     return pitches
+
+def multi_threaded_processing()
 #%%
 # test on flute sound
 fs, data = read('audio/flute-alto-C-corrected.wav')
 start_time = time.time()
-detected_freqs = sequential_processing(data, 3000, 4410)
+detected_freqs = sequential_processing(data, 900, 1000)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
 print(f'detected frequency: {detected_freqs}')
@@ -238,7 +240,7 @@ f3 = 1200
 x = np.arange(100000)
 data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi * f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
 start_time = time.time()
-detected_freq = yin_algorithm_one_block(data, 3000, 10000, 4410)
+detected_freq = yin_algorithm_one_block(data, 3000, 10000, 300)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON SINE WAVES ----------------------------')
 print(f'detected frequency: {detected_freq}')
