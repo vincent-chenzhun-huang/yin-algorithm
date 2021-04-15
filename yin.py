@@ -5,6 +5,7 @@ from scipy.io.wavfile import read
 import matplotlib.pyplot as plt
 import warnings
 import time
+import math
 
 
 def diff(x: np.array, 
@@ -90,6 +91,7 @@ def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
         tau_selected (int): the tau value selected for minimum difference
         cmndiff (np.array): the result calculated from cmndiff function.
     """
+    print(tau_selected)
     assert tau_selected > 0 and tau_selected < len(cmndiff) - 1
     ordinates = np.array(cmndiff[tau_selected - 1: tau_selected + 2]) # get the y coordinates
     abscissae = np.array([tau_selected - 1, tau_selected, tau_selected + 1])
@@ -139,6 +141,7 @@ def yin_algorithm_one_block(x: np.array,
         start (int): the starting index in the signal
         w (int): the integration window size
         threshold (float, optional): the threshold to select tau. Defaults to 0.1.
+        plot (bool, option): the option to plot the difference functions. Defaults to False.
 
     Returns:
         int: returns the calculated estimated frequency
@@ -157,14 +160,15 @@ def yin_algorithm_one_block(x: np.array,
     tau = abs_threshold(cmndiff_signal, threshold=threshold)
     # end_time = time.time()
     # print(f'execution time of abs_threshold: {end_time - start_time}')
-
-    tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
-    tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
-    detected_freq = 1 / (tau_interpolated / fs)
+    if tau != 0:
+        tau_interpolated = parabolic_interpolation(tau, cmndiff_signal)
+        detected_freq = 1 / (tau_interpolated / fs)
+    else:
+        detected_freq = 0
     
     if (plot):
         plt.figure(1)
-        plt.plot(data)
+        plt.plot(data[start: start + w])
         plt.title(f'The Input Signal from Sample {start} to Sample {start + w}')
         plt.figure(2)
         plt.title(f'The Difference Function')
@@ -174,17 +178,55 @@ def yin_algorithm_one_block(x: np.array,
         plt.plot(cmndiff_signal)
     return detected_freq
     
-
 #%%
 
+def sequential_processing(x: np.array,
+                          tau_max: int,
+                          w: int,
+                          threshold=0.1,
+                          plot=False) -> np.array:
+    """use yin algorithm on several blocks of input sequentially
 
+    Args:
+        x (np.array): the input signal to be processed
+        tau_max (int): the maximum frequency to be estimated, for step 2
+        w (int): the integration window size
+        threshold (float, optional): the threshold to select tau. Defaults to 0.1.
+        plot (bool, optional): the option to plot the difference functions. Defaults to False.
+
+    Returns:
+        np.array: an Array of estimated pitches
+    """
+    
+    assert len(x) > 3 * w # we should have at least two blocks
+    
+    # divide the signal into blocks of size w, the last block has the window size of what's left in the input data
+    num_blocks = math.ceil(len(x) / w)
+    start_indices = [0 + w * i for i in range(num_blocks)]
+    last_block_size = (len(x) - 1) - start_indices[-1] + 1
+    
+    pitches = np.zeros((num_blocks, )) # for each block we should have a result
+    for i in range(num_blocks):
+        if i == num_blocks - 1 or i == num_blocks - 2:
+            w = last_block_size
+            plot = True
+            pitches[i] = pitches[i - 1] # the last two block fill the frequency of their previous block
+        else:
+            pitches[i] = yin_algorithm_one_block(x,
+                                             tau_max,
+                                             start_indices[i],
+                                             w,
+                                             threshold=threshold,
+                                             plot=plot)
+    return pitches
+#%%
 # test on flute sound
 fs, data = read('audio/flute-alto-C-corrected.wav')
 start_time = time.time()
-detected_freq = yin_algorithm_one_block(data, 3000, 10000, 4410)
+detected_freqs = sequential_processing(data, 3000, 4410)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
-print(f'detected frequency: {detected_freq}')
+print(f'detected frequency: {detected_freqs}')
 print(f'execution time: {end_time - start_time}')
 
 #%%
@@ -203,3 +245,14 @@ print(f'detected frequency: {detected_freq}')
 print(f'execution time: {end_time - start_time}')
 
 # %%
+# multi-threaded processing
+
+# import threading
+
+w = 4410 # 0.1s window
+tau_max = 3000
+
+fs, data = read('audio/flute-alto-C-corrected.wav')
+
+
+
