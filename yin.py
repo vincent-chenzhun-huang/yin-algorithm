@@ -221,44 +221,44 @@ def calculate_num_blocks(x: np.array, divider: int):
     return math.ceil(len(x) / divider)
 
 # def multi_threaded_processing(x: np.array, 
-                              tau_max: int,
-                              w: int,
-                              threshold=0.1,
-                              plot=False,
-                              num_of_threads=1,
-                              ) -> np.array:
-    """process the sound input using a specified number of threads
+    #                           tau_max: int,
+    #                           w: int,
+    #                           threshold=0.1,
+    #                           plot=False,
+    #                           num_of_threads=1,
+    #                           ) -> np.array:
+    # """process the sound input using a specified number of threads
 
-    Args:
-        x (np.array): the input signal to be processed
-        tau_max (int): the maximum frequency to be estimated, for step 2
-        w (int): the integration window size
-        threshold (float, optional): the threshold to select tau. Defaults to 0.1.
-        plot (bool, optional): the option to plot the difference functions. Defaults to False.
-        num_of_threads(int, optional): the option to support parallel processing
-        lock (threading.Lock): lock to prevent data race
-    Returns:
-        np.array: an Array of estimated pitches
-    """
-    pitches_lock = threading.Lock()
+    # Args:
+    #     x (np.array): the input signal to be processed
+    #     tau_max (int): the maximum frequency to be estimated, for step 2
+    #     w (int): the integration window size
+    #     threshold (float, optional): the threshold to select tau. Defaults to 0.1.
+    #     plot (bool, optional): the option to plot the difference functions. Defaults to False.
+    #     num_of_threads(int, optional): the option to support parallel processing
+    #     lock (threading.Lock): lock to prevent data race
+    # Returns:
+    #     np.array: an Array of estimated pitches
+    # """
+    # pitches_lock = threading.Lock()
     
-    chunk_size = len(x) // num_of_threads
-    starting_indices_for_chunks = [0 + i * chunk_size for i in range(num_of_threads)]
-    last_chunk_size = len(x) - starting_indices_for_chunks[-1]
-    chunk_sizes = [chunk_sizen for i in range(num_of_threads)] + [last_chunk_size]
+    # chunk_size = len(x) // num_of_threads
+    # starting_indices_for_chunks = [0 + i * chunk_size for i in range(num_of_threads)]
+    # last_chunk_size = len(x) - starting_indices_for_chunks[-1]
+    # chunk_sizes = [chunk_sizen for i in range(num_of_threads)] + [last_chunk_size]
 
     
-    assert calculate_num_blocks(chunk_size, w) > 3
-    if (calculate_num_blocks(last_chunk_size) <= 3):
-        starting_indices_for_chunks.pop() # if we can't process the last segment, ditch it
-        chunk_sizes.pop()
+    # assert calculate_num_blocks(chunk_size, w) > 3
+    # if (calculate_num_blocks(last_chunk_size) <= 3):
+    #     starting_indices_for_chunks.pop() # if we can't process the last segment, ditch it
+    #     chunk_sizes.pop()
         
-    pitches = np.zeros((np.array(chunk_sizes).sum(), )) # create a list of results to put into
+    # pitches = np.zeros((np.array(chunk_sizes).sum(), )) # create a list of results to put into
     
     
 #%%
 # test on flute sound
-fs, data = read('audio/oboe-bassoon.wav')
+fs, data = read('audio/flute-alto-C-corrected.wav')
 start_time = time.time()
 detected_freqs = sequential_processing(data, 900, 4410)
 end_time = time.time()
