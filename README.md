@@ -1,5 +1,12 @@
 # An Exploration on the YIN Algorithm
 
+See the formatted report [here](https://www.notion.so/An-exploration-on-the-YIN-Algorithm-374119a5d75546df95907f53de1e29ca)
+
+# Installation
+- Clone the repository
+- Run `pip install -r requirements.txt` to install the dependencies
+- Run the Python file yin.py (the whole file or interactively).
+
 # Introduction
 
 With the advancement of different applications that focus extensively on digital signal processing, the ability to react upon the incoming elements has become essential to ensure quality and responsiveness. In music technology industry in particular, frequency / pitch analysis is one of the most important aspects mainly due to the musical nature of various tools such as vocal harmonizer, digital instrument tuner, etc. Unfortunately, the process of developing such tools had been bottlenecked by the accurate detection of the pitch. 
