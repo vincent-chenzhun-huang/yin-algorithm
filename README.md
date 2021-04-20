@@ -1,4 +1,4 @@
-# An exploration on the YIN Algorithm
+# An Exploration on the YIN Algorithm
 
 # Introduction
 
