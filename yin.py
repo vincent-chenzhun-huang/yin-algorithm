@@ -1,6 +1,5 @@
 # %%
 
-import sounddevice as sd
 from pysinewave import SineWave
 import numpy as np
 from scipy.io.wavfile import read
@@ -8,7 +7,6 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 import math
-import threading
 
 
 def diff(x: np.array,
@@ -81,15 +79,15 @@ def abs_threshold(cmndiff: np.array, threshold: float = 0.1) -> int:
     Returns:
         int: returns the value of tau chosen
     """
-    tau_global_mean = len(cmndiff) - 1
+    tau_global_min = len(cmndiff) - 1
     for t in range(len(cmndiff)):
         if cmndiff[t] <= threshold:
             return t  # return the minimum value of tau that gives the value below the threshold
 
-        if cmndiff[t] < cmndiff[tau_global_mean]:
-            tau_global_mean = t
+        if cmndiff[t] < cmndiff[tau_global_min]:
+            tau_global_min = t
 
-    return tau_global_mean
+    return tau_global_min
 
 
 def parabolic_interpolation(tau_selected: int, cmndiff: np.array):
@@ -271,7 +269,7 @@ def calculate_num_blocks(x: np.array, divider: int):
 
 # %%
 # test on flute sound
-filename = 'trpt-lick.wav'
+filename = 'clarinet-C-octave0.wav'
 fs, data = read(f'audio/{filename}')
 start_time = time.time()
 detected_freqs = sequential_processing(data[4410:88200], 300, 4410)
@@ -305,7 +303,7 @@ print(f'execution time: {end_time - start_time}')
 plt.figure(2)
 plt.xlabel('chunks')
 plt.ylabel('detected pitch (Hz)')
-plt.title(f'pitches detected for {filename}')
+plt.title(f'pitches detected for sine wave with 400Hz 800Hz and 1200Hz')
 plt.plot(detected_freq)
 
 # %%
