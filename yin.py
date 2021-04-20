@@ -271,10 +271,10 @@ def calculate_num_blocks(x: np.array, divider: int):
 
 # %%
 # test on flute sound
-filename = 'test.wav'
+filename = 'trpt-lick.wav'
 fs, data = read(f'audio/{filename}')
 start_time = time.time()
-detected_freqs = sequential_processing(data, 40, 4410)
+detected_freqs = sequential_processing(data[4410:88200], 300, 4410)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
 print(f'detected frequency: {detected_freqs}')
@@ -296,11 +296,17 @@ x = np.arange(100000)
 data = np.sin(2 * np.pi * f1 * x / fs) + np.sin(2 * np.pi *
                                                 f2 * x / fs) + np.sin(2 * np.pi * f3 * x / fs)
 start_time = time.time()
-detected_freq = sequential_processing(data, 300, 4410)
+detected_freq = sequential_processing(data, 300, 8820)
 end_time = time.time()
 print(f'------------------------------------------- TEST ON SINE WAVES ----------------------------')
 print(f'detected frequency: {detected_freq}')
 print(f'execution time: {end_time - start_time}')
+
+plt.figure(2)
+plt.xlabel('chunks')
+plt.ylabel('detected pitch (Hz)')
+plt.title(f'pitches detected for {filename}')
+plt.plot(detected_freq)
 
 # %%
 # multi-threaded processing
