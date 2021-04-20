@@ -1,4 +1,4 @@
-# An Exploration on the YIN Algorithm
+# An Attempt on the Implementation of YIN Algorithm
 
 See the formatted report [here](https://www.notion.so/An-exploration-on-the-YIN-Algorithm-374119a5d75546df95907f53de1e29ca)
 
