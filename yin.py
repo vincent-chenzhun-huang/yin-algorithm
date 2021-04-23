@@ -40,7 +40,7 @@ def diff(x: np.array,
         start_j_t = x[start + 1 + t: start + w + 1 + t]
         # for j in range(1, w + 1):
         #     df += (x[start + j] - x[start + j + t]) ** 2
-        df = ((start_j - start_j_t) ** 2).sum()
+        df = ((start_j - start_j_t) ** 2).sum(dtype=np.int64)
         difference[t] = df
 
     return np.array(difference, dtype=np.float64)
@@ -310,6 +310,27 @@ plt.plot(detected_freq)
 # multi-threaded processing
 
 # %%
+# test on flute sound
+filename = 'flute-alto-C-corrected.wav'
+fs, data = read(f'audio/{filename}')
+plt.figure(4)
+plt.plot(data)
+plt.title(
+    f'The Input Signal from Sample')
+plt.figure(5)
+start_time = time.time()
+# detected_freqs = sequential_processing(data, 300, 4410, plot=True)
+detected_freq = yin_algorithm_one_block(data, 1000, 4410, 5000, plot=True)
+end_time = time.time()
+print(f'------------------------------------------- TEST ON AUDIO FILES ----------------------------')
+print(f'detected frequency: {detected_freqs}')
+plt.figure(6)
+plt.xlabel('chunks')
+plt.ylabel('detected pitch (Hz)')
+plt.title(f'pitches detected for {filename}')
+plt.plot(detected_freqs)
+print(f'execution time: {end_time - start_time}')
 
-sd.query_devices()
+
+
 # %%
